@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const OMDB_API_KEY = process.env.OMDB_API_KEY || 'fe3ed9ea';
+const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const OMDB_BASE_URL = 'http://www.omdbapi.com';
 
 /**
