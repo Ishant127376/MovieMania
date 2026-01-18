@@ -72,7 +72,36 @@ MovieMania is a **full-featured entertainment tracking platform** built with the
 
 ---
 
-## 🚀 Quick Start
+## � Screenshots
+
+<details>
+<summary><b>Click to view application screenshots</b></summary>
+
+<br />
+
+### Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
+*Main dashboard showing your movie collection with stats and recently added titles*
+
+### Movie Search
+![Search Modal](docs/screenshots/search-modal.png)
+*TMDB-powered search to find any movie or TV show*
+
+### Add Movie
+![Add Movie](docs/screenshots/add-movie.png)
+*Add movies with ratings, reviews, tags, and AI-assisted review writing*
+
+### Personalized Recommendations
+![Recommendations](docs/screenshots/recommendations.png)
+*AI-powered "For You" page with taste profile and personalized picks*
+
+### Appearance Settings
+![Appearance Settings](docs/screenshots/appearance-settings.png)
+*Customizable themes, accent colors, and accessibility options*
+
+</details>
+
+## �🚀 Quick Start
 
 Get up and running in **under 5 minutes**:
 
@@ -649,6 +678,28 @@ We welcome contributions! Here's how:
 3. **Commit** your changes: `git commit -m 'Add AmazingFeature'`
 4. **Push** to the branch: `git push origin feature/AmazingFeature`
 5. **Open** a Pull Request
+
+### 🧪 Testing with Sample Data
+
+We provide sample MongoDB data to help you get started quickly:
+
+```bash
+# Seed your local database with sample movies, TV shows, and users
+node sample-data/seed-database.js
+```
+
+**Sample data includes:**
+| Collection | Count | Examples |
+|------------|-------|----------|
+| Users | 2 | `johndoe`, `janedoe` (admin) |
+| Movies | 5 | Fight Club, Inception, Pulp Fiction, Interstellar, The Matrix |
+| TV Shows | 4 | Breaking Bad, Rick and Morty, Game of Thrones, Stranger Things |
+| Episodes | 4 | Sample episodes with IMDb ratings |
+| Watchlist Movies | 3 | Oppenheimer, Barbie, Aquaman 2 |
+| Watchlist TV Shows | 2 | House of the Dragon, The Bear |
+| Collections | 3 | Nolan Favorites, 90s Classics, 5-Star Movies |
+
+> **Note**: Sample data uses fictional user accounts. Register new users or use the sample data for testing.
 
 ---
 
