@@ -84,7 +84,7 @@ git clone https://github.com/yourusername/moviemania.git && cd moviemania
 npm run install:all
 
 # 3. Configure your environment
-cp server/.env.example server/.env
+cp server/.env
 # Edit server/.env with your MongoDB URI and TMDB API key
 
 # 4. Launch!
