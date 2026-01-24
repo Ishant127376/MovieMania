@@ -64,7 +64,7 @@ export default function RecommendedMovies({ tmdbId, currentMovieId }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {data.results.slice(0, 6).map((movie, index) => (
                     <motion.div
-                        key={movie.id}
+                        key={movie.id ?? movie.tmdbId ?? index}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}

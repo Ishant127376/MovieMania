@@ -101,12 +101,21 @@ export function StarRatingInput({
 
                         {/* Half star overlay */}
                         {allowHalf && (
-                            <button
-                                type="button"
-                                className="absolute inset-0 w-1/2 overflow-hidden"
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Set ${halfValue} stars`}
+                                className="absolute inset-0 w-1/2 overflow-hidden cursor-pointer"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleClick(index, true);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleClick(index, true);
+                                    }
                                 }}
                             >
                                 <Star
@@ -118,7 +127,7 @@ export function StarRatingInput({
                                             : 'text-transparent'
                                     )}
                                 />
-                            </button>
+                            </span>
                         )}
                     </button>
                 );

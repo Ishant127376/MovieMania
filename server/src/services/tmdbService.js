@@ -317,7 +317,6 @@ class TMDBService {
             const response = await this.client.get(`/movie/${tmdbId}/recommendations`, {
                 params: { page }
             });
-
             return {
                 results: response.data.results.slice(0, 12).map(this.formatMovieResult),
                 page: response.data.page,
@@ -380,9 +379,9 @@ class TMDBService {
     /**
      * Search TV shows by query
      * @param {string} query - Search query
-     * @param {number} page - Page number
-     * @param {number} year - Optional first air year filter
-     * @returns {Promise<Object>} Search results
+                        // See note above for movies — avoid filtering by language to include
+                        // non-English trailers/teasers.
+                        const response = await this.client.get(`/tv/${tmdbId}/videos`);
      */
     async searchTVShows(query, page = 1, year = null) {
         const params = {
