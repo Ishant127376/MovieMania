@@ -4,6 +4,15 @@ import tokenService from '../services/tokenService.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import env from '../config/environment.js';
+
+const refreshCookieBaseOptions = {
+    httpOnly: true,
+    secure: env.nodeEnv === 'production',
+    // In production, frontends are commonly hosted on a different domain.
+    // SameSite=None is required for the browser to send cookies cross-site.
+    sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+};
 
 /**
  * Validation rules for registration
@@ -76,10 +85,8 @@ export const register = asyncHandler(async (req, res) => {
 
     // Set refresh token in HTTP-only cookie
     res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        ...refreshCookieBaseOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     ApiResponse.created(res, {
@@ -131,10 +138,8 @@ export const login = asyncHandler(async (req, res) => {
 
     // Set refresh token cookie
     res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        ...refreshCookieBaseOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     ApiResponse.success(res, {
@@ -195,11 +200,7 @@ export const logout = asyncHandler(async (req, res) => {
     }
 
     // Clear cookie
-    res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict'
-    });
+    res.clearCookie('refreshToken', refreshCookieBaseOptions);
 
     ApiResponse.success(res, null, 'Logged out successfully');
 });

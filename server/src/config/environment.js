@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 /**
  * Validates that all required environment variables are present
  */
@@ -24,12 +21,31 @@ if (process.env.NODE_ENV === 'production') {
     validateEnv();
 }
 
+const normalizeMongoUri = (value) => {
+    if (!value) return value;
+
+    let normalized = value.trim();
+
+    // Common copy/paste mistake: the value includes the key.
+    if (normalized.startsWith('MONGODB_URI=')) {
+        normalized = normalized.slice('MONGODB_URI='.length).trim();
+    }
+
+    // Strip surrounding quotes.
+    if ((normalized.startsWith('"') && normalized.endsWith('"')) ||
+        (normalized.startsWith("'") && normalized.endsWith("'"))) {
+        normalized = normalized.slice(1, -1).trim();
+    }
+
+    return normalized;
+};
+
 const env = {
     nodeEnv: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT, 10) || 5000,
 
     // MongoDB
-    mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/moviemania',
+    mongodbUri: normalizeMongoUri(process.env.MONGODB_URI) || 'mongodb://localhost:27017/moviemania',
 
     // JWT
     jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production',
@@ -42,7 +58,10 @@ const env = {
     tmdbBaseUrl: process.env.TMDB_BASE_URL || 'https://api.themoviedb.org/3',
 
     // CORS
-    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
 
     // Rate Limiting
     rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
