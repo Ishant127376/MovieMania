@@ -6,9 +6,12 @@ import env from './environment.js';
  */
 const connectDB = async () => {
     try {
+        const hasDbInUriPath = /mongodb(\+srv)?:\/\/[^/]+\/[^?]+/.test(env.mongodbUri);
+
         const conn = await mongoose.connect(env.mongodbUri, {
-            // These options are no longer needed in Mongoose 6+
-            // but kept for compatibility
+            ...(hasDbInUriPath
+                ? {}
+                : { dbName: process.env.MONGODB_DB_NAME || 'moviemania' }),
         });
 
         console.log(`✅ MongoDB Connected: ${conn.connection.host}`);

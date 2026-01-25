@@ -1,6 +1,10 @@
-import app from './app.js';
-import { connectDB, disconnectDB } from './config/database.js';
-import env from './config/environment.js';
+import './config/loadEnv.js';
+
+const [{ default: env }, { default: app }, { connectDB, disconnectDB }] = await Promise.all([
+    import('./config/environment.js'),
+    import('./app.js'),
+    import('./config/database.js'),
+]);
 
 const PORT = env.port;
 
@@ -19,9 +23,7 @@ const startServer = async () => {
 ║                                                          ║
 ║   🎬 MovieMania API Server                               ║
 ║                                                          ║
-║   Environment: ${env.nodeEnv.padEnd(40)}║
-║   Port: ${PORT.toString().padEnd(47)}║
-║   API: http://localhost:${PORT}/api${' '.repeat(27)}║
+║   Environment: ${env.nodeEnv.padEnd(40)}                 ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
       `);

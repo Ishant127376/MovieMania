@@ -7,6 +7,7 @@
     "scripts": {
         "start": "node src/server.js",
         "dev": "nodemon src/server.js",
+        "seed:sample": "node scripts/seed-sample-data.js",
         "lint": "eslint src/**/*.js",
         "format": "prettier --write src/**/*.js"
     },

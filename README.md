@@ -113,8 +113,8 @@ git clone https://github.com/yourusername/moviemania.git && cd moviemania
 npm run install:all
 
 # 3. Configure your environment
-cp server/.env
-# Edit server/.env with your MongoDB URI and TMDB API key
+cp server/.env.example server/.env
+# Edit server/.env with your MongoDB URI (local or Atlas) and API keys
 
 # 4. Launch!
 npm run dev
@@ -520,7 +520,7 @@ MovieMania/
 <details>
 <summary><b>🔐 Environment Variables</b></summary>
 
-Create `server/.env`:
+Create `server/.env` (recommended: copy from `server/.env.example`):
 
 ```env
 # Required
@@ -528,7 +528,9 @@ MONGODB_URI=mongodb://localhost:27017/moviemania
 JWT_SECRET=your_secret_at_least_32_characters_long
 REFRESH_TOKEN_SECRET=another_secret_key_also_32_chars
 TMDB_API_KEY=your_tmdb_api_key
-OMDB_API_KEY=your_omdb_api_key_for_imdb_ratings
+
+# Optional (used for IMDb ratings; app still runs without it)
+OMDB_API_KEY=your_omdb_api_key
 
 # AI Features (Optional but recommended)
 GEMINI_API_KEY=your_google_gemini_api_key
@@ -537,6 +539,18 @@ GEMINI_API_KEY=your_google_gemini_api_key
 NODE_ENV=development
 PORT=5000
 ```
+
+### MongoDB Atlas (reusing an existing cluster)
+
+Set `MONGODB_URI` to your Atlas SRV connection string and include a database name in the path:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-host>/moviemania?retryWrites=true&w=majority
+```
+
+Notes:
+- Replace `moviemania` with the database name you want to use inside that cluster.
+- If your password contains special characters (e.g. `@`, `#`, `:`), URL-encode it.
 
 </details>
 
