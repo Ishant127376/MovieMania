@@ -16,7 +16,12 @@ const registerSchema = z.object({
     password: z
         .string()
         .min(8, 'Password must be at least 8 characters')
-        .regex(/\d/, 'Password must contain at least one number'),
+        .max(15, 'Password must be at most 15 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+        .regex(/\d/, 'Password must contain at least one number')
+        .regex(/[!@#$%&*()-+=^]/, 'Password must contain at least one special character: !@#$%&*()-+=^')
+        .refine((s) => !s.includes(' '), 'Password must not contain any white space'),
     confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -44,6 +49,7 @@ export default function RegisterForm({ onSubmit, isLoading }) {
                 leftIcon={<User className="w-5 h-5" />}
                 error={errors.username?.message}
                 {...register('username')}
+                data-testid="username-input"
             />
 
             <Input
@@ -53,6 +59,7 @@ export default function RegisterForm({ onSubmit, isLoading }) {
                 leftIcon={<Mail className="w-5 h-5" />}
                 error={errors.email?.message}
                 {...register('email')}
+                data-testid="email-input"
             />
 
             <Input
@@ -75,6 +82,7 @@ export default function RegisterForm({ onSubmit, isLoading }) {
                 }
                 error={errors.password?.message}
                 {...register('password')}
+                data-testid="password-input"
             />
 
             <Input
@@ -97,12 +105,14 @@ export default function RegisterForm({ onSubmit, isLoading }) {
                 }
                 error={errors.confirmPassword?.message}
                 {...register('confirmPassword')}
+                data-testid="confirm-password-input"
             />
 
             <Button
                 type="submit"
                 className="w-full"
                 isLoading={isLoading}
+                data-testid="submit-button"
             >
                 Create Account
             </Button>
