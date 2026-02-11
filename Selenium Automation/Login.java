@@ -21,11 +21,11 @@ public class MovieMania {
         WebElement email = wait.until(
                 ExpectedConditions.visibilityOfElementLocated(By.name("email"))
         );
-        email.sendKeys("priyanshi2801ad@gmail.com");
+        email.sendKeys("your_email_id");
         Thread.sleep(1500);
 
         WebElement password = driver.findElement(By.name("password"));
-        password.sendKeys("Kusum1122@");
+        password.sendKeys("your_password");
         Thread.sleep(1500);
 
         WebElement loginBtn = driver.findElement(
