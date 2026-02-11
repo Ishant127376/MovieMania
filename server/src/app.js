@@ -34,7 +34,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-ID'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-ID', 'X-AI-Key-Index'],
     exposedHeaders: ['X-MovieMania-Version', 'X-MovieMania-Instance', 'X-MovieMania-Build']
 }));
 
