@@ -37,6 +37,10 @@ const buildTasteProfile = async (userId) => {
 
 export const predictMovieRating = asyncHandler(async (req, res) => {
     const { tmdbId, type = 'movie' } = req.params;
+    const preferredKeyIndexRaw = req.get('X-AI-Key-Index');
+    const preferredKeyIndex = Number.isFinite(parseInt(preferredKeyIndexRaw, 10))
+        ? parseInt(preferredKeyIndexRaw, 10)
+        : undefined;
 
     try {
         // 1. Get Movie/TV Details
@@ -55,7 +59,7 @@ export const predictMovieRating = asyncHandler(async (req, res) => {
             voteAverage: details.vote_average || 0
         };
 
-        const prediction = await geminiService.predictRating(userTaste, movieData);
+        const prediction = await geminiService.predictRating(userTaste, movieData, preferredKeyIndex);
 
         ApiResponse.success(res, prediction);
     } catch (error) {
@@ -66,6 +70,10 @@ export const predictMovieRating = asyncHandler(async (req, res) => {
 
 export const getTasteMatch = asyncHandler(async (req, res) => {
     const { tmdbId, type = 'movie' } = req.params;
+    const preferredKeyIndexRaw = req.get('X-AI-Key-Index');
+    const preferredKeyIndex = Number.isFinite(parseInt(preferredKeyIndexRaw, 10))
+        ? parseInt(preferredKeyIndexRaw, 10)
+        : undefined;
 
     try {
         const details = type === 'movie'
@@ -79,7 +87,7 @@ export const getTasteMatch = asyncHandler(async (req, res) => {
             genres: details.genres ? details.genres.map(g => g.name) : []
         };
 
-        const match = await geminiService.calculateTasteMatch(userTaste, movieData);
+        const match = await geminiService.calculateTasteMatch(userTaste, movieData, preferredKeyIndex);
 
         ApiResponse.success(res, match);
     } catch (error) {

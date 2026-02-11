@@ -59,6 +59,11 @@ const buildExtendedProfile = async (userId) => {
 
 export const getAutoInsights = asyncHandler(async (req, res) => {
     try {
+        const preferredKeyIndexRaw = req.get('X-AI-Key-Index');
+        const preferredKeyIndex = Number.isFinite(parseInt(preferredKeyIndexRaw, 10))
+            ? parseInt(preferredKeyIndexRaw, 10)
+            : undefined;
+
         const profile = await buildExtendedProfile(req.user._id);
 
         if (!profile) {
@@ -68,7 +73,7 @@ export const getAutoInsights = asyncHandler(async (req, res) => {
             });
         }
 
-        const insights = await geminiService.generateInsights(profile);
+        const insights = await geminiService.generateInsights(profile, preferredKeyIndex);
 
         ApiResponse.success(res, {
             ready: true,

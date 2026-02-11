@@ -2,18 +2,64 @@ import { GoogleGenAI } from '@google/genai';
 
 class GeminiService {
     constructor() {
-        this.apiKey = process.env.GEMINI_API_KEY;
-        this.ai = null;
+        const parseKeyList = (value) => {
+            if (!value || typeof value !== 'string') return [];
+            return value
+                .split(',')
+                .map((k) => k.trim())
+                .filter(Boolean);
+        };
+
+        // Prefer GEMINI_API_KEYS (comma-separated) but keep backward compatibility with GEMINI_API_KEY.
+        this.apiKeys = parseKeyList(process.env.GEMINI_API_KEYS);
+        if (this.apiKeys.length === 0 && process.env.GEMINI_API_KEY) {
+            this.apiKeys = [String(process.env.GEMINI_API_KEY).trim()].filter(Boolean);
+        }
+
+        this.clients = this.apiKeys.map((apiKey) => new GoogleGenAI({ apiKey }));
+        this._nextClientIndex = 0;
         this.model = 'gemini-2.5-flash';
 
-        if (this.apiKey) {
-            this.ai = new GoogleGenAI({ apiKey: this.apiKey });
-        } else {
-            console.warn('GEMINI_API_KEY is not set in environment variables. AI features will be disabled.');
+        if (this.clients.length === 0) {
+            console.warn('GEMINI_API_KEY(S) not set. AI features will be disabled.');
         }
     }
 
-    async makeRequestWithRetry(operation, maxRetries = 3) {
+    get hasAI() {
+        return this.clients.length > 0;
+    }
+
+    normalizePreferredKeyIndex(value) {
+        if (value === undefined || value === null) return null;
+        const parsed = typeof value === 'number' ? value : parseInt(String(value), 10);
+        if (!Number.isFinite(parsed)) return null;
+        if (!this.hasAI) return null;
+        const count = this.clients.length;
+        // Proper modulo for negative values
+        const normalized = ((parsed % count) + count) % count;
+        return normalized;
+    }
+
+    getClientOrder(preferredKeyIndex) {
+        const count = this.clients.length;
+        if (count === 0) return [];
+
+        const preferred = this.normalizePreferredKeyIndex(preferredKeyIndex);
+        const start = preferred !== null ? preferred : (this._nextClientIndex % count);
+
+        // Round-robin for calls that don't specify a preferred index
+        if (preferred === null) {
+            this._nextClientIndex = (start + 1) % count;
+        }
+
+        const order = [];
+        for (let i = 0; i < count; i++) {
+            order.push((start + i) % count);
+        }
+        return order;
+    }
+
+    async makeRequestWithRetry(operation, { maxRetries = 3, preferredKeyIndex } = {}) {
         const getStatus = (err) => err?.status ?? err?.response?.status;
         const getMessage = (err) => String(err?.message ?? '');
         const isQuotaExceeded429 = (err) => {
@@ -27,31 +73,68 @@ class GeminiService {
             );
         };
 
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                return await operation();
-            } catch (error) {
-                // If Gemini quota is exceeded, retries won't help (often shows quota_limit_value 0)
-                if (isQuotaExceeded429(error)) {
-                    const e = new Error('Gemini quota exceeded');
-                    e.status = 429;
-                    e.userMessage = 'AI is temporarily unavailable (Gemini quota exceeded). Try again later or increase your Gemini quota.';
-                    throw e;
+        if (!this.hasAI) {
+            const e = new Error('AI service not initialized');
+            e.status = 503;
+            e.userMessage = 'AI features are disabled on the server.';
+            throw e;
+        }
+
+        const isAuthError = (status) => status === 401 || status === 403;
+        const isRetryableStatus = (status) => {
+            if (!status) return false;
+            return [408, 429, 500, 502, 503, 504].includes(status);
+        };
+
+        let lastError;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const order = this.getClientOrder(preferredKeyIndex);
+            for (const clientIndex of order) {
+                const ai = this.clients[clientIndex];
+                try {
+                    return await operation(ai);
+                } catch (error) {
+                    lastError = error;
+
+                    // If Gemini quota is exceeded, rotating keys won't help (often shows quota_limit_value 0)
+                    if (isQuotaExceeded429(error)) {
+                        const e = new Error('Gemini quota exceeded');
+                        e.status = 429;
+                        e.userMessage = 'AI is temporarily unavailable (Gemini quota exceeded). Try again later or increase your Gemini quota.';
+                        throw e;
+                    }
+
+                    const status = getStatus(error);
+
+                    // Auth/key issues: immediately try next key
+                    if (isAuthError(status)) {
+                        continue;
+                    }
+
+                    // Rate limit: try next key; if all keys are rate-limited, we backoff in the outer loop
+                    if (status === 429) {
+                        continue;
+                    }
+
+                    // Transient server/network-ish errors: backoff + retry (outer loop)
+                    if (isRetryableStatus(status) && attempt < maxRetries - 1) {
+                        break;
+                    }
+
+                    throw error;
                 }
+            }
 
-                const status = getStatus(error);
-
-                // Retry only for transient 429s
-                if (status === 429 && i < maxRetries - 1) {
-                    const delay = Math.min(8000, Math.pow(2, i) * 1000 + (Math.random() * 500));
-                    console.warn(`Gemini API rate limit hit. Retrying in ${delay}ms...`);
-                    await new Promise((resolve) => setTimeout(resolve, delay));
-                    continue;
-                }
-
-                throw error;
+            // Backoff between retry rounds (helps when all keys hit 429 temporarily)
+            if (attempt < maxRetries - 1) {
+                const delay = Math.min(8000, Math.pow(2, attempt) * 1000 + (Math.random() * 500));
+                console.warn(`Gemini request retrying in ${Math.round(delay)}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, delay));
             }
         }
+
+        throw lastError;
     }
 
     cleanJson(text) {
@@ -85,38 +168,24 @@ class GeminiService {
         }
     }
 
-    async generateReviewDraft(movieTitle, rating, genres) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async generateReviewDraft(movieTitle, rating, genres, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Write a short, engaging movie review for "${movieTitle}" (Genres: ${genres.join(', ')}). 
             The rating is ${rating}/5. 
             Keep it under 100 words. 
             Focus on why someone might give this rating.
             Do not include spoilers.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return response.text;
-        });
+        }, { preferredKeyIndex });
     }
 
-    async expandThoughts(bulletPoints) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async expandThoughts(bulletPoints, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Expand these bullet points into a cohesive movie review paragraph. 
             Maintain the original tone.
             
@@ -125,46 +194,32 @@ class GeminiService {
             
             Output only the paragraph.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return response.text;
-        });
+        }, { preferredKeyIndex });
     }
 
-    async removeSpoilers(reviewText) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async removeSpoilers(reviewText, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Rewrite the following movie review to remove any major plot spoilers while keeping the sentiment and opinion intact.
             If there are no spoilers, return the text as is.
             
             Review:
             "${reviewText}"`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return response.text;
-        });
+        }, { preferredKeyIndex });
     }
 
-    async analyzeSentiment(text) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async analyzeSentiment(text, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Analyze the sentiment of this movie review.
             Return a JSON object with:
             - sentiment: "positive", "negative", or "neutral"
@@ -176,23 +231,16 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async suggestTags(reviewText) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async suggestTags(reviewText, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Suggest 5 relevant tags for this movie review. 
             Tags should be single words or short phrases (max 2 words).
             Return purely a JSON array of strings.
@@ -200,23 +248,16 @@ class GeminiService {
             Review:
             "${reviewText}"`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async parseNaturalQuery(query) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async parseNaturalQuery(query, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Parse this natural language movie/TV search query into structured search parameters.
             Query: "${query}"
             
@@ -231,23 +272,16 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async findSimilarMovies(movieTitle, modifier) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async findSimilarMovies(movieTitle, modifier, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Suggest 5 movies that are similar to "${movieTitle}" but are specifically "${modifier}".
             Return a JSON array of objects with:
             - title: string
@@ -255,23 +289,16 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async predictRating(userTaste, movieData) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async predictRating(userTaste, movieData, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Predict a rating (0-5 stars) for the movie "${movieData.title}" based on this user's taste profile.
             
             User Taste:
@@ -291,23 +318,16 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async calculateTasteMatch(userTaste, movieData) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async calculateTasteMatch(userTaste, movieData, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Calculate a "Taste Match" percentage for this user and movie.
             
             User Taste: ${JSON.stringify(userTaste)}
@@ -319,23 +339,16 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 
-    async generateInsights(userProfile) {
-        return this.makeRequestWithRetry(async () => {
-            if (!this.ai) {
-                const e = new Error('AI service not initialized');
-                e.status = 503;
-                e.userMessage = 'AI features are disabled on the server.';
-                throw e;
-            }
-
+    async generateInsights(userProfile, preferredKeyIndex) {
+        return this.makeRequestWithRetry(async (ai) => {
             const prompt = `Generate 4 fun, personalized insights about this user's movie taste.
             
             User Statistics:
@@ -354,12 +367,12 @@ class GeminiService {
             
             Return ONLY the JSON.`;
 
-            const response = await this.ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: this.model,
                 contents: prompt
             });
             return this.cleanJson(response.text);
-        });
+        }, { preferredKeyIndex });
     }
 }
 

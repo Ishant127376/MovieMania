@@ -2,6 +2,12 @@ import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import geminiService from '../services/geminiService.js';
 
+const getPreferredKeyIndex = (req) => {
+    const raw = req.get('X-AI-Key-Index');
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 /**
  * @desc    Generate a review draft
  * @route   POST /api/ai/review/generate
@@ -9,13 +15,14 @@ import geminiService from '../services/geminiService.js';
  */
 export const generateReviewDraft = asyncHandler(async (req, res) => {
     const { movieTitle, rating, genres } = req.body;
+    const preferredKeyIndex = getPreferredKeyIndex(req);
 
     if (!movieTitle || !rating) {
         return ApiResponse.error(res, 'Movie title and rating are required', 400);
     }
 
     try {
-        const draft = await geminiService.generateReviewDraft(movieTitle, rating, genres || []);
+        const draft = await geminiService.generateReviewDraft(movieTitle, rating, genres || [], preferredKeyIndex);
         ApiResponse.success(res, { draft });
     } catch (error) {
         console.error('AI Generation Error:', error);
@@ -32,13 +39,14 @@ export const generateReviewDraft = asyncHandler(async (req, res) => {
  */
 export const expandThoughts = asyncHandler(async (req, res) => {
     const { bulletPoints } = req.body;
+    const preferredKeyIndex = getPreferredKeyIndex(req);
 
     if (!bulletPoints) {
         return ApiResponse.error(res, 'Bullet points are required', 400);
     }
 
     try {
-        const review = await geminiService.expandThoughts(bulletPoints);
+        const review = await geminiService.expandThoughts(bulletPoints, preferredKeyIndex);
         ApiResponse.success(res, { review });
     } catch (error) {
         console.error('AI Expansion Error:', error);
@@ -55,13 +63,14 @@ export const expandThoughts = asyncHandler(async (req, res) => {
  */
 export const removeSpoilers = asyncHandler(async (req, res) => {
     const { reviewText } = req.body;
+    const preferredKeyIndex = getPreferredKeyIndex(req);
 
     if (!reviewText) {
         return ApiResponse.error(res, 'Review text is required', 400);
     }
 
     try {
-        const cleanText = await geminiService.removeSpoilers(reviewText);
+        const cleanText = await geminiService.removeSpoilers(reviewText, preferredKeyIndex);
         ApiResponse.success(res, { cleanText });
     } catch (error) {
         console.error('AI Spoiler Removal Error:', error);
@@ -78,13 +87,14 @@ export const removeSpoilers = asyncHandler(async (req, res) => {
  */
 export const analyzeSentiment = asyncHandler(async (req, res) => {
     const { text } = req.body;
+    const preferredKeyIndex = getPreferredKeyIndex(req);
 
     if (!text) {
         return ApiResponse.error(res, 'Text is required', 400);
     }
 
     try {
-        const analysis = await geminiService.analyzeSentiment(text);
+        const analysis = await geminiService.analyzeSentiment(text, preferredKeyIndex);
         ApiResponse.success(res, analysis);
     } catch (error) {
         console.error('AI Analysis Error:', error);
@@ -101,13 +111,14 @@ export const analyzeSentiment = asyncHandler(async (req, res) => {
  */
 export const suggestTags = asyncHandler(async (req, res) => {
     const { reviewText } = req.body;
+    const preferredKeyIndex = getPreferredKeyIndex(req);
 
     if (!reviewText) {
         return ApiResponse.error(res, 'Review text is required', 400);
     }
 
     try {
-        const tags = await geminiService.suggestTags(reviewText);
+        const tags = await geminiService.suggestTags(reviewText, preferredKeyIndex);
         ApiResponse.success(res, { tags });
     } catch (error) {
         console.error('AI Tag Suggestion Error:', error);

@@ -29,6 +29,10 @@ const GENRE_MAP = {
 
 export const smartSearch = asyncHandler(async (req, res) => {
     const { query } = req.body;
+    const preferredKeyIndexRaw = req.get('X-AI-Key-Index');
+    const preferredKeyIndex = Number.isFinite(parseInt(preferredKeyIndexRaw, 10))
+        ? parseInt(preferredKeyIndexRaw, 10)
+        : undefined;
 
     if (!query) {
         return ApiResponse.error(res, 'Search query is required', 400);
@@ -36,7 +40,7 @@ export const smartSearch = asyncHandler(async (req, res) => {
 
     try {
         // 1. Parse natural language query
-        const aiParams = await geminiService.parseNaturalQuery(query);
+        const aiParams = await geminiService.parseNaturalQuery(query, preferredKeyIndex);
 
         let results = [];
 
@@ -46,7 +50,7 @@ export const smartSearch = asyncHandler(async (req, res) => {
             const targetMovie = parts[0].replace('like', '').trim();
             const modifier = parts[1].trim();
 
-            const similar = await geminiService.findSimilarMovies(targetMovie, modifier);
+            const similar = await geminiService.findSimilarMovies(targetMovie, modifier, preferredKeyIndex);
             // Search specifically for these suggested titles
             results = await Promise.all(similar.map(async (item) => {
                 const search = await tmdbService.searchMovies(item.title);
