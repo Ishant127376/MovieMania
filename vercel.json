@@ -10,7 +10,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.YOUR_BACKEND_DOMAIN/api/:path*"
+      "destination": "https://moviemania-0q7d.onrender.com/api/:path*"
     }
   ]
 }

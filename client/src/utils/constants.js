@@ -1,5 +1,16 @@
 // API URLs
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const resolveApiBaseUrl = () => {
+    const raw = import.meta.env.VITE_API_URL;
+
+    if (!raw || typeof raw !== 'string') return '/api';
+
+    const trimmed = raw.trim().replace(/\/+$/, '');
+    if (!trimmed) return '/api';
+
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
 // Image sizes

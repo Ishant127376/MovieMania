@@ -1,8 +1,21 @@
 import axios from 'axios';
 
+const resolveApiBaseUrl = () => {
+    const raw = import.meta.env.VITE_API_URL;
+
+    // If not provided, default to same-origin /api (works with Vite dev proxy)
+    if (!raw || typeof raw !== 'string') return '/api';
+
+    const trimmed = raw.trim().replace(/\/+$/, '');
+    if (!trimmed) return '/api';
+
+    // Backend mounts routes under /api
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
 // Create axios instance
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '/api',
+    baseURL: resolveApiBaseUrl(),
     withCredentials: true, // Include cookies
     headers: {
         'Content-Type': 'application/json',
